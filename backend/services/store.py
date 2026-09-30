@@ -2,18 +2,25 @@ import os,sqlite3,hashlib,re,json,math,time,statistics
 from pathlib import Path
 DB=Path(os.getenv("GUIDELY_DB","backend/data/guidely.sqlite3"))
 SAMPLE=Path("backend/data/sample-docs")
+class EmbeddingProviderError(RuntimeError): pass
 def connect():
  DB.parent.mkdir(parents=True,exist_ok=True); c=sqlite3.connect(DB); c.row_factory=sqlite3.Row; return c
 def initialize():
- with connect() as c: c.executescript("CREATE TABLE IF NOT EXISTS documents(id TEXT PRIMARY KEY,name TEXT,category TEXT,content TEXT,updated REAL); CREATE TABLE IF NOT EXISTS chunks(id TEXT PRIMARY KEY,doc_id TEXT,section TEXT,text TEXT,vector TEXT); CREATE TABLE IF NOT EXISTS queries(id INTEGER PRIMARY KEY,question TEXT,latency REAL,sources TEXT,error TEXT,created REAL); CREATE TABLE IF NOT EXISTS counters(name TEXT PRIMARY KEY,value INTEGER NOT NULL); CREATE TABLE IF NOT EXISTS errors(id INTEGER PRIMARY KEY,kind TEXT,message TEXT,created REAL); CREATE TABLE IF NOT EXISTS auth_users(id TEXT PRIMARY KEY,email TEXT UNIQUE,display_name TEXT NOT NULL,role TEXT NOT NULL,created REAL NOT NULL); CREATE TABLE IF NOT EXISTS auth_sessions(token_hash TEXT PRIMARY KEY,user_id TEXT NOT NULL,expires REAL NOT NULL,FOREIGN KEY(user_id) REFERENCES auth_users(id)); CREATE TABLE IF NOT EXISTS login_codes(email TEXT PRIMARY KEY,code_hash TEXT NOT NULL,expires REAL NOT NULL,sent_at REAL NOT NULL,attempts INTEGER NOT NULL,display_name TEXT NOT NULL); CREATE TABLE IF NOT EXISTS auth_ip_limits(ip TEXT NOT NULL,kind TEXT NOT NULL,window_start REAL NOT NULL,count INTEGER NOT NULL,PRIMARY KEY(ip,kind));")
+ with connect() as c:
+  c.executescript("CREATE TABLE IF NOT EXISTS documents(id TEXT PRIMARY KEY,name TEXT,category TEXT,content TEXT,updated REAL); CREATE TABLE IF NOT EXISTS chunks(id TEXT PRIMARY KEY,doc_id TEXT,section TEXT,text TEXT,vector TEXT); CREATE TABLE IF NOT EXISTS queries(id INTEGER PRIMARY KEY,question TEXT,latency REAL,sources TEXT,error TEXT,created REAL); CREATE TABLE IF NOT EXISTS counters(name TEXT PRIMARY KEY,value INTEGER NOT NULL); CREATE TABLE IF NOT EXISTS errors(id INTEGER PRIMARY KEY,kind TEXT,message TEXT,created REAL); CREATE TABLE IF NOT EXISTS auth_users(id TEXT PRIMARY KEY,email TEXT UNIQUE,display_name TEXT NOT NULL,role TEXT NOT NULL,created REAL NOT NULL); CREATE TABLE IF NOT EXISTS auth_sessions(token_hash TEXT PRIMARY KEY,user_id TEXT NOT NULL,expires REAL NOT NULL,FOREIGN KEY(user_id) REFERENCES auth_users(id)); CREATE TABLE IF NOT EXISTS auth_ip_limits(ip TEXT NOT NULL,kind TEXT NOT NULL,window_start REAL NOT NULL,count INTEGER NOT NULL,PRIMARY KEY(ip,kind));")
+  user_columns={row["name"] for row in c.execute("PRAGMA table_info(auth_users)")}
+  if "password_hash" not in user_columns: c.execute("ALTER TABLE auth_users ADD COLUMN password_hash TEXT")
  if not counts()["documents"]:
   for p in SAMPLE.glob("*.txt"): index_document(p.name,p.read_text(encoding="utf-8"))
 def vector(text):
  key=os.getenv("OPENAI_API_KEY")
  if key:
-  from openai import OpenAI
-  model=os.getenv("OPENAI_EMBEDDING_MODEL","text-embedding-3-small")
-  return OpenAI(api_key=key,timeout=12).embeddings.create(model=model,input=text).data[0].embedding
+  try:
+   from openai import OpenAI
+   model=os.getenv("OPENAI_EMBEDDING_MODEL","text-embedding-3-small")
+   return OpenAI(api_key=key,timeout=12).embeddings.create(model=model,input=text).data[0].embedding
+  except Exception as exc:
+   raise EmbeddingProviderError(type(exc).__name__) from exc
  v=[0.0]*384
  for w in re.findall(r"[a-z0-9]+",text.lower()):
   h=int(hashlib.sha256(w.encode()).hexdigest()[:8],16); v[h%384]+=1 if h&256 else -1

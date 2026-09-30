@@ -1,13 +1,10 @@
 import os,time,csv,io
-from typing import Literal
 from fastapi import APIRouter,HTTPException,Depends,Request
 from backend.auth import get_current_user,require_admin,enforce_ip_rate
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel,Field
+from backend.models.search import Question
 from backend.services import store
 router=APIRouter()
-class Turn(BaseModel): role:Literal["user","assistant"]; content:str=Field(max_length=2000)
-class Question(BaseModel): question:str=Field(min_length=1,max_length=2000); top_k:int=Field(5,ge=1,le=10); category:str|None=Field(default=None,max_length=80); history:list[Turn]=Field(default_factory=list,max_length=12)
 def answer(q,hits,history):
  if not hits or hits[0]["score"]<=(0.18 if os.getenv("OPENAI_API_KEY") else 0.08): return "I couldn't find a relevant passage in indexed documents. Try different wording or ask an administrator to add the relevant guide."
  key=os.getenv("OPENAI_API_KEY")
@@ -40,8 +37,11 @@ def ask(body:Question,request:Request,user=Depends(get_current_user)):
   sources=[{k:h[k] for k in ("id","document","category","section","snippet","score")} for h in hits if h["score"]>0][:5]
   store.log_query(q,ms,[s["id"] for s in sources]); return {"answer":text,"sources":sources,"latency_ms":ms}
  except HTTPException: raise
+ except store.EmbeddingProviderError as e:
+  ms=round((time.perf_counter()-start)*1000,2); store.log_query(q,ms,[],"embedding_provider"); store.log_error("embedding_failure",str(e))
+  raise HTTPException(503,"Embedding service unavailable. Check OPENAI_API_KEY and try again.")
  except Exception as e:
-  store.log_query(q,round((time.perf_counter()-start)*1000,2),[],type(e).__name__); raise HTTPException(500,"Search failed. Please try again.")
+  ms=round((time.perf_counter()-start)*1000,2); store.log_query(q,ms,[],type(e).__name__); store.log_error("search_failure",type(e).__name__); raise HTTPException(500,"Search failed. Please try again.")
 @router.get("/export-queries")
 def export_queries(user=Depends(require_admin)):
  with store.connect() as c: rows=c.execute("SELECT created,question,latency,sources,error FROM queries ORDER BY created DESC").fetchall()

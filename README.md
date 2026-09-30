@@ -15,12 +15,11 @@ python -m venv .venv
 .venv\Scripts\Activate.ps1
 pip install -r backend/requirements.txt
 Copy-Item backend/.env.example backend/.env
-# Configure a supported SMTP sender in backend/.env before email sign-in can work.
-# Set ADMIN_EMAILS to a comma-separated list of administrator email addresses.
-uvicorn backend.main:app --reload --env-file backend/.env
+# Set ADMIN_EMAILS and a private ADMIN_SIGNUP_KEY in backend/.env before creating the admin account.
+uvicorn backend.main:app --reload
 ```
 
-Email-code sign-in requires an SMTP sender configured in `backend/.env`. If `SMTP_HOST` is empty, the app reports that no email was sent and does not create a verification code. The recipient can be an Outlook address; the sender must be configured separately. Outlook.com SMTP requires OAuth2/Modern Auth according to [Microsoft's settings](https://support.microsoft.com/en-us/outlook/pop-imap-and-smtp-settings-for-outlook-com); this app's generic SMTP integration uses username/password authentication and does not implement Microsoft's OAuth flow, so use an SMTP provider that supports this integration or add OAuth support before using an Outlook.com mailbox as the sender. Never put credentials in chat, source control, or the frontend. In production, set a unique random `AUTH_CODE_SECRET`, `GUIDELY_ENV=production` to disable guest access by default, `ALLOW_GUEST_LOGIN=1` only if you intentionally want guest readers, and `AUTH_COOKIE_SECURE=1` when serving over HTTPS. Add trusted administrator emails to `ADMIN_EMAILS`; verified accounts default to reader access.
+Sign in with an email address and password, or create an account. Passwords must be at least eight characters and are stored as salted PBKDF2 hashes. Emails listed in `ADMIN_EMAILS` receive administrator access; other accounts are readers. Guest sign-in can be disabled with `ALLOW_GUEST_LOGIN=0`.
 
 In a second terminal:
 
@@ -42,11 +41,11 @@ Open http://localhost:5173. API docs: http://localhost:8000/docs. Without an API
 
 ## Authentication and roles
 
-Email sign-in sends a six-digit one-time code through configured SMTP. When SMTP is not configured, sign-in returns an explicit error and no code is created or shown. Codes are stored as keyed HMACs, expire after 10 minutes, are limited to one request per email per minute and five per IP per hour, and verification allows five attempts. Sessions use random server-side tokens stored as hashes and an HttpOnly cookie. The example config sets `ADMIN_EMAILS=polytechnic.main@outlook.com`. Set it to your trusted administrator addresses to grant admin access after email verification. Other email accounts are readers; guest sessions are temporary reader access. Only administrators can upload/edit/delete/re-index documents or export logs.
+Accounts use email and password with rate-limited login and registration. Passwords are stored as salted PBKDF2 hashes. Sessions use random server-side tokens stored as hashes and an HttpOnly cookie. Set `ADMIN_EMAILS` and `ADMIN_SIGNUP_KEY` before creating an administrator account; the setup key prevents someone else from claiming an admin email before its owner. Other email accounts are readers. Guest sessions are temporary reader access. Only administrators can upload/edit/delete/re-index documents or export logs.
 
 ## Endpoints
 
-- `GET /api/auth/config`, `POST /api/auth/request-code`, `POST /api/auth/verify-code`, `POST /api/auth/guest`, `GET /api/auth/me`, `POST /api/auth/logout`
+- `GET /api/auth/config`, `POST /api/auth/register`, `POST /api/auth/login`, `POST /api/auth/guest`, `GET /api/auth/me`, `POST /api/auth/logout`
 - `GET /health`, authenticated `GET /metrics`
 - `GET /api/documents`, `POST /api/documents` (multipart file and category)
 - `GET /api/documents/{id}/content`, `PUT /api/documents/{id}` (multipart replacement), `DELETE /api/documents/{id}`
@@ -70,7 +69,7 @@ The smoke check passed `/health` (200), five-document indexing, vacation retriev
 
 ## Scope
 
-Email-code sign-in, guest sessions, reader/admin roles, categories, document upload/edit/remove, sample re-index, follow-up history, CSV query export, health/metrics, and responsive reader/admin views are included. Guests and readers can ask questions; only configured admins can change documents or export query logs. This starter does not parse PDF/Word files. Configure an SMTP provider before expecting verification codes to arrive in real inboxes; local development displays the code in the app. For production, add access controls, data retention policy, deployment-specific CORS and cookie settings, data retention policy, and operational monitoring.
+Email/password sign-in, guest sessions, reader/admin roles, categories, document upload/edit/remove, sample re-index, follow-up history, CSV query export, health/metrics, and responsive reader/admin views are included. Guests and readers can ask questions; only configured admins can change documents or export query logs. This starter does not parse PDF/Word files. For production, review data retention and operational monitoring before adding confidential documents.
 
 
 ## Security review
@@ -81,7 +80,7 @@ Email-code sign-in, guest sessions, reader/admin roles, categories, document upl
 | Backend dependency advisories (`pip-audit`) | No known vulnerabilities reported for the declared requirements at review time.
 | Python environment consistency (`pip check`) | No broken requirements.
 | API authorization | Unauthenticated search blocked; guest/reader writes denied; configured admin writes allowed.
-| Abuse/input checks | OTP per-email and per-IP throttles, five code attempts, 10-minute expiry, HMAC code hashes in production, 2 MiB document upload cap, bounded question/history inputs.
+| Abuse/input checks | Per-IP login and registration throttles, salted PBKDF2 password hashes, 2 MiB document upload cap, bounded question/history inputs.
 | Browser protections | HttpOnly session cookie, configurable Secure flag, allowed-Origin check on state-changing API requests, basic security headers; API docs disabled in production.
 
-Known deployment limits: no SMTP credentials are included, so no real email has been sent; configure a trusted sender before production. Authenticated readers share access to the whole single-workspace library; there is no per-document ACL or tenant isolation. SQLite content and query logs are not encrypted at rest and have no retention cleanup. Review data retention and hosting controls before adding confidential documents. Dependency scanners report known published advisories only and do not prove the application is vulnerability-free.
+Known deployment limits: authenticated readers share access to the whole single-workspace library; there is no per-document ACL or tenant isolation. SQLite content and query logs are not encrypted at rest and have no retention cleanup. Review data retention and hosting controls before adding confidential documents. Dependency scanners report known published advisories only and do not prove the application is vulnerability-free.

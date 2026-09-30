@@ -1,6 +1,11 @@
 # Guidely - Internal Knowledge Assistant
 
 A source-cited Q&A workspace for internal policies, FAQs, and team guides. Add or edit documents, retrieve ranked passages, ask questions, and inspect the supporting excerpts.
+## Demo
+![Guidely demo](Images/guidely_landing_page.png)
+*The Ask page: type a question, filter by category, or start from a suggested question.*
+![Guidely answering a question with sources](Images/guidely_question.png)
+*Asking a question on the Ask page: Guidely returns an answer and lists the source passages with match scores.*
 
 ## Sample dataset
 

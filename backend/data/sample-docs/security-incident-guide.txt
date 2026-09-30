@@ -1,0 +1,10 @@
+# Security Incident Response
+
+## Report an incident
+Report suspected phishing, lost devices, accidental data sharing, or unusual account activity immediately through the Security Help Desk form. If the form is unavailable, message the on-call security engineer in #security. Include what happened, when it happened, and systems or data involved. Never include passwords or secret keys.
+
+## Containment
+Do not investigate or delete suspicious messages yourself. Disconnect a device only if Security asks. Preserve evidence and follow the incident lead's instructions.
+
+## Updates
+The incident lead shares status in the response channel. Customer communications require Legal and Communications approval.

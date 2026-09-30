@@ -1,0 +1,10 @@
+# Support Escalation FAQ
+
+## When should I escalate?
+Escalate a ticket when service is unavailable for multiple customers, a security or privacy issue is suspected, a contractual deadline is at risk, or troubleshooting has not resolved the issue.
+
+## How do I escalate?
+Set ticket priority and impact, summarize expected and observed behavior, list troubleshooting completed, and add timestamps and error messages. Assign the ticket to the engineering on-call queue. Keep the customer updated at the agreed cadence.
+
+## Severity one
+For a widespread outage, page the incident commander immediately and open an incident channel. Do not promise a resolution time before engineering confirms it.

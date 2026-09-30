@@ -1,0 +1,10 @@
+# Customer Onboarding Guide
+
+## Kickoff
+After a signed order form, the account owner schedules a kickoff within five business days. Confirm goals, stakeholders, timeline, integrations, and success measures. Record decisions in CRM account notes.
+
+## Workspace setup
+Create the customer workspace from the approved template. Assign an administrator and verify domain ownership before inviting users. Send the getting-started guide and explain how to contact Support.
+
+## Launch readiness
+Confirm required data is imported, integrations are tested, and the customer administrator has completed training. Record launch approval in CRM. Escalate blocked criteria to the implementation lead.
